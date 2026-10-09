@@ -14,6 +14,7 @@ export function roleTone(role: Role): Team {
 
 export const ACTION_LABEL: Record<ActionType, string> = {
   wolf_discuss: '狼人夜聊',
+  wolf_vote: '狼人投票',
   witch: '女巫用药',
   seer: '查验',
   run_for_sheriff: '决定是否上警',

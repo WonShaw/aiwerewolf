@@ -497,27 +497,37 @@ export class Game {
     return list.map((d) => ({ ...d, lastWords: night === 1 })); // 只有第一晚的死者有遗言
   }
 
-  // 狼人依次发言并提议目标，以多数为准，平票随机
+  // 狼人先按座位依次发言商量（只剩一只狼时不用商量），全部说完后同时投票，以多数为准，平票随机
   private async wolfStep(night: number): Promise<number> {
     const wolves = this.aliveWolves();
     const targets = this.aliveSeats();
-    const proposals: Record<number, number> = {};
-    for (const seat of wolves) {
-      const out = await this.ask(
-        seat,
-        'wolf_discuss',
-        { night, targets },
-        (o) => (wolves.length > 1 && !this.isHuman(seat) && !o.speech?.trim() ? '缺少 speech' : Game.seatField(o.target, targets, false, 'target')),
-        () => ({ action: 'wolf_discuss', target: pick(targets.filter((s) => !isWolf(this.roles[s]))) }),
-      );
-      if (out.speech?.trim()) this.emit({ type: 'speech', seat, kind: 'wolf', text: out.speech }, group(wolves));
-      proposals[seat] = out.target!;
+    if (wolves.length > 1) {
+      for (const seat of wolves) {
+        const out = await this.ask(
+          seat,
+          'wolf_discuss',
+          { night, targets },
+          (o) => (!this.isHuman(seat) && !o.speech?.trim() ? '缺少 speech' : null),
+          () => ({ action: 'wolf_discuss' }),
+        );
+        if (out.speech?.trim()) this.emit({ type: 'speech', seat, kind: 'wolf', text: out.speech }, group(wolves));
+      }
     }
-    const counts = new Map<number, number>();
-    for (const t of Object.values(proposals)) counts.set(t, (counts.get(t) ?? 0) + 1);
-    const most = Math.max(...counts.values());
-    const target = pick([...counts.entries()].filter(([, c]) => c === most).map(([t]) => t));
-    this.emit({ type: 'wolf_kill', night, target, votes: proposals }, group(wolves));
+    const outs = await Promise.all(
+      wolves.map((seat) =>
+        this.ask(
+          seat,
+          'wolf_vote',
+          { night, targets },
+          (o) => Game.seatField(o.target, targets, false, 'target'),
+          () => ({ action: 'wolf_vote', target: pick(targets.filter((s) => !isWolf(this.roles[s]))) }),
+        ),
+      ),
+    );
+    const votes: Record<number, number> = Object.fromEntries(wolves.map((seat, i) => [seat, outs[i].target!]));
+    const { top } = Game.tally(votes, () => 1);
+    const target = pick(top);
+    this.emit({ type: 'wolf_kill', night, target, votes }, group(wolves));
     return target;
   }
 

@@ -4,6 +4,7 @@ import type { ActionSubmission, ActionType } from '../../shared/types.ts';
 // 工具定义处在提示词最前面，如果每次调用换 schema，整段缓存都会失效。
 export const ACTION_TYPES: ActionType[] = [
   'wolf_discuss',
+  'wolf_vote',
   'witch',
   'seer',
   'run_for_sheriff',

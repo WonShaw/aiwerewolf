@@ -160,7 +160,7 @@ export function Timeline(props: Props) {
           <div className="sys night-info wolf">
             🐺 狼人决定袭击 <b>{who(e.target)}</b>
             <span className="muted">
-              （提议：
+              （投票：
               {Object.entries(e.votes)
                 .map(([w, t]) => `${w}号→${t}号`)
                 .join('，')}

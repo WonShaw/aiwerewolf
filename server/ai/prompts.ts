@@ -17,7 +17,8 @@ ${RULES_TEXT}
 ## 如何行动
 - 每次轮到你时，裁判会说明需要你做的动作（action）。请直接调用 StructuredOutput 工具提交，不要先输出普通文本。
 - action 必须与裁判要求的一致，并填写该动作需要的字段：
-  - wolf_discuss：speech（只有狼人能看到）+ target（提议袭击的座位号）
+  - wolf_discuss：speech（和同伴商量，只有狼人能看到）
+  - wolf_vote：target（投票袭击的座位号）
   - witch：save（true 使用解药救今晚被袭击的人）、poison（毒药目标的座位号，0 表示不用）
   - seer：target（查验的座位号）
   - run_for_sheriff：run（true 上警 / false 不上警）
@@ -103,10 +104,10 @@ export function renderEvent(e: GameEvent, ctx: RenderContext): string | null {
       if (e.seat === ctx.viewer) return null; // 自己说的话已在自己的会话里
       return `<发言 座位="${e.seat}" 名字="${name(e.seat)}" 类型="${SPEECH_KIND_LABEL[e.kind]}">\n${e.text}\n</发言>`;
     case 'wolf_kill': {
-      const proposals = Object.entries(e.votes)
+      const votes = Object.entries(e.votes)
         .map(([wolf, target]) => `${wolf}号→${target}号`)
         .join('，');
-      return `【裁判】狼人的决定：今晚袭击 ${who(e.target)}（提议：${proposals}）。`;
+      return `【裁判】狼人的决定：今晚袭击 ${who(e.target)}（投票：${votes}）。`;
     }
     case 'witch_info': {
       const victim = !e.antidote
@@ -177,7 +178,9 @@ export function actionInstruction(action: ActionType, c: ActionContext): string 
   const targets = seatList(c.targets ?? []);
   switch (action) {
     case 'wolf_discuss':
-      return `【裁判】第 ${c.night} 夜，狼人请睁眼（action=wolf_discuss）：在 speech 里和同伴商量（只有狼人能看到），在 target 里提议今晚袭击的座位号。可选：${targets}。以多数提议为准，票数相同时在并列的目标里随机选一个。`;
+      return `【裁判】第 ${c.night} 夜，狼人请睁眼。狼人按座位顺序依次发言，商量今晚袭击谁（action=wolf_discuss）：在 speech 里发言，只有狼人能看到；可以回应前面同伴说的话。可以袭击的玩家：${targets}。所有狼人都发言之后，再一起投票决定袭击目标。`;
+    case 'wolf_vote':
+      return `【裁判】第 ${c.night} 夜，狼人投票决定今晚袭击谁（action=wolf_vote）：target 填座位号。可选：${targets}。所有存活的狼人同时投票，以多数为准，票数相同时在并列的目标里随机选一个。`;
     case 'witch': {
       const save = c.canSave ? 'save=true 表示使用解药救今晚被袭击的人' : '今晚不能用解药（save 填 false）';
       const poison = c.canPoison ? `poison 填毒药目标的座位号（可选：${targets}），0 表示不用` : '毒药已用完（poison 填 0）';

@@ -34,7 +34,9 @@ function answer(r: HumanRequest): ActionSubmission {
   const t = r.targets ?? [];
   switch (r.action) {
     case 'wolf_discuss':
-      return { action: r.action, speech: '刀谁', target: pick(t) };
+      return { action: r.action, speech: chance(0.2) ? undefined : '刀谁' };
+    case 'wolf_vote':
+      return { action: r.action, target: pick(t) };
     case 'witch':
       if (r.canSave && chance(0.5)) return { action: r.action, save: true };
       if (r.canPoison && chance(0.3)) return { action: r.action, poison: pick(t) };
@@ -80,6 +82,7 @@ async function simulate(prefs: RolePreference[]): Promise<Game> {
   const received: Record<number, StreamMessage[]> = {};
   const alive = new Set(seats);
   let revealedIdiot: number | null = null;
+  let wolfVoting = false; // 这一夜狼人是否已经开始投票
   game.bus.on('message', (msg: StreamMessage) => {
     for (const s of seats) if (messageVisible(msg, { kind: 'player', seat: s })) (received[s] ??= []).push(msg);
     if (msg.kind === 'event') {
@@ -88,9 +91,13 @@ async function simulate(prefs: RolePreference[]): Promise<Game> {
       if (e.type === 'exiled') alive.delete(e.seat);
       if (e.type === 'hunter_shot' && e.target) alive.delete(e.target);
       if (e.type === 'idiot_revealed') revealedIdiot = e.seat;
+      if (e.type === 'night_start') wolfVoting = false;
     }
     if (msg.kind !== 'request') return;
     const r = msg.request;
+    // 狼人先全部发言，再统一投票
+    if (r.action === 'wolf_vote') wolfVoting = true;
+    if (r.action === 'wolf_discuss' && wolfVoting) fail('wolf asked to discuss after voting started');
     // 出局的玩家只会被问遗言/开枪/警徽和赛后感想；翻牌的白痴不再投票
     if (!['dying', 'reflect'].includes(r.action) && !alive.has(r.seat)) {
       // 第一天竞选警长时，第一晚的死者还没公布，可以参加
@@ -153,6 +160,16 @@ function checkGame(events: GameEvent[], roles: Record<number, Role>): void {
         }
         if (antidote < 0 || poison < 0) fail('potion used twice');
         break;
+      case 'wolf_kill': {
+        // 每只存活的狼各投一票，目标是得票最多的之一
+        const wolves = [...alive].filter((s) => isWolf(roles[s])).sort((a, b) => a - b);
+        if (Object.keys(e.votes).map(Number).sort((a, b) => a - b).join() !== wolves.join()) fail('wolf votes do not match alive wolves');
+        const counts: Record<number, number> = {};
+        for (const t of Object.values(e.votes)) counts[t] = (counts[t] ?? 0) + 1;
+        if (counts[e.target] !== Math.max(...Object.values(counts))) fail('wolf kill target was not the most voted');
+        if (wolves.length === 1) hit('lone wolf');
+        break;
+      }
       case 'night_result':
         if (!e.dead.length) hit('peaceful night');
         kill(...e.dead);

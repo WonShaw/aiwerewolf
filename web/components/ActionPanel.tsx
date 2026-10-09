@@ -13,7 +13,9 @@ interface Props {
 function title(r: HumanRequest): string {
   switch (r.action) {
     case 'wolf_discuss':
-      return `第 ${r.night} 夜 · 狼人请睁眼：和同伴商量，提议今晚袭击谁`;
+      return `第 ${r.night} 夜 · 狼人请睁眼：和同伴商量今晚袭击谁`;
+    case 'wolf_vote':
+      return `第 ${r.night} 夜 · 狼人投票：今晚袭击谁`;
     case 'witch':
       return `第 ${r.night} 夜 · 女巫请睁眼`;
     case 'seer':
@@ -68,7 +70,7 @@ export function ActionPanel({ gameId, token, request, players }: Props) {
     const submission: ActionSubmission = { action, ...extra };
     // "跳过"会显式传入空发言，不能被输入框里的内容覆盖
     if (allowsSpeech && extra.speech === undefined && speech.trim()) submission.speech = speech.trim();
-    if ((action === 'wolf_discuss' || action === 'seer') && target !== null) submission.target = target;
+    if (action === 'seer' && target !== null) submission.target = target;
     if (action === 'witch') {
       submission.save = witch === 'save';
       submission.poison = witch === 'poison' && target !== null ? target : 0;
@@ -111,21 +113,25 @@ export function ActionPanel({ gameId, token, request, players }: Props) {
   const canSubmit =
     !busy &&
     (!SPEECH_REQUIRED.includes(action) || speech.trim().length > 0) &&
-    (action !== 'wolf_discuss' && action !== 'seer' ? true : target !== null) &&
+    (action !== 'seer' || target !== null) &&
     (action !== 'witch' || witch !== 'poison' || target !== null) &&
     (action !== 'dying' || ((!r.canShoot || shoot !== null) && (!r.hasBadge || badge !== null)));
 
   // 投票类和二选一的动作点按钮直接提交，其余的动作用提交按钮
-  const instant = ['run_for_sheriff', 'sheriff_vote', 'exile_vote', 'speech_order'].includes(action);
+  const instant = ['run_for_sheriff', 'wolf_vote', 'sheriff_vote', 'exile_vote', 'speech_order'].includes(action);
 
   return (
-    <div className={`action-panel${['wolf_discuss', 'witch', 'seer'].includes(action) ? ' night' : ''}`}>
+    <div className={`action-panel${['wolf_discuss', 'wolf_vote', 'witch', 'seer'].includes(action) ? ' night' : ''}`}>
       <div className="action-title">{title(r)}</div>
 
       {action === 'wolf_discuss' && (
+        <div className="muted small-text">狼人按座位依次发言，全部说完后再一起投票决定袭击谁。</div>
+      )}
+
+      {action === 'wolf_vote' && (
         <div className="action-row">
-          <div className="muted">提议袭击（以多数提议为准，平票随机）</div>
-          <div className="seat-picks">{targets.map((s) => seatButton(s, target === s, () => setTarget(s)))}</div>
+          <div className="muted">所有狼人同时投票，以多数为准，平票随机</div>
+          <div className="seat-picks">{targets.map((s) => seatButton(s, false, () => submit({ target: s })))}</div>
         </div>
       )}
 

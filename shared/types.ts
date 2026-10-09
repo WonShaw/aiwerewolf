@@ -68,7 +68,7 @@ export type GameEventBody =
   | { type: 'role_assigned'; seat: number; role: Role; knowledge: string; marks: SeatMark[] }
   | { type: 'night_start'; night: number }
   | { type: 'speech'; seat: number; kind: SpeechKind; text: string }
-  // 狼人最终决定袭击的目标（只有狼人看得到）
+  // 狼人最终决定袭击的目标和每只狼的投票（只有狼人看得到）
   | { type: 'wolf_kill'; night: number; target: number; votes: Record<number, number> }
   // 女巫看到的信息：有解药时才知道今晚谁被袭击
   | { type: 'witch_info'; night: number; victim: number | null; antidote: boolean; poison: boolean }
@@ -114,7 +114,8 @@ export type GameEvent = GameEventBody & {
 };
 
 export type ActionType =
-  | 'wolf_discuss' // 狼人夜里讨论并提议袭击目标
+  | 'wolf_discuss' // 狼人夜里依次发言商量
+  | 'wolf_vote' // 狼人商量完后同时投票决定袭击目标
   | 'witch' // 女巫用药
   | 'seer' // 预言家查验
   | 'run_for_sheriff' // 是否上警
@@ -128,7 +129,7 @@ export type ActionType =
   | 'reflect'; // 赛后感想
 
 // 夜里的动作：谁在行动、发言过程都不能让其他玩家看到
-export const NIGHT_ACTIONS: ActionType[] = ['wolf_discuss', 'witch', 'seer'];
+export const NIGHT_ACTIONS: ActionType[] = ['wolf_discuss', 'wolf_vote', 'witch', 'seer'];
 
 export type GameStatus = 'running' | 'finished' | 'aborted' | 'error';
 
