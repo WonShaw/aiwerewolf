@@ -92,8 +92,9 @@ function stream(req: IncomingMessage, res: ServerResponse, id: string, token: st
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
   });
-  // 观众一直能看到全部信息；玩家在对局正常结束后也能看到，和观众一样
-  const seesAllNow = () => seesEverything(viewer, game.record.status);
+  // 观众一直能看到全部信息；玩家在出局后或对局正常结束后也能看到，和观众一样
+  const seesAllNow = () =>
+    seesEverything(viewer, game.record.status, viewer.kind === 'player' && game.isObserver(viewer.seat));
   let seesAll = seesAllNow();
   const send = (msg: StreamMessage) => {
     if (messageVisible(msg, viewer, seesAll)) res.write(`data: ${JSON.stringify(msg)}\n\n`);
@@ -101,7 +102,7 @@ function stream(req: IncomingMessage, res: ServerResponse, id: string, token: st
 
   // 推送完整的当前状态；前端收到 hello 会先清空再接收
   const sendAll = () => {
-    send({ kind: 'hello', viewer });
+    send({ kind: 'hello', viewer, fullView: seesAll });
     send({ kind: 'game', summary: game.summary() });
     for (const event of game.events) send({ kind: 'event', event });
 
@@ -113,7 +114,7 @@ function stream(req: IncomingMessage, res: ServerResponse, id: string, token: st
   };
   sendAll();
 
-  // 对局刚结束时重推一遍，之前没推给玩家的内容（思考摘要、其他人的身份、任务牌、调用统计）不用刷新页面也能看到
+  // 出局或对局刚结束时重推一遍，之前没推给玩家的内容（其他人的身份、夜里的行动、思考摘要、调用统计）不用刷新页面也能看到
   const onMessage = (msg: StreamMessage) => {
     if (!seesAll && seesAllNow()) {
       seesAll = true;

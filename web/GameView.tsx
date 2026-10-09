@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { seesEverything, type CreateGameResponse, type GameStatus } from '../shared/types.ts';
+import type { CreateGameResponse, GameStatus } from '../shared/types.ts';
 import { api, createGame, loadRequest } from './client.ts';
 import { ActionPanel } from './components/ActionPanel.tsx';
 import { RoleGuide } from './components/RoleGuide.tsx';
@@ -51,8 +51,8 @@ export function GameView({ gameId, token, onBack, onCreated }: Props) {
   const [godView, setGodView] = usePersistentToggle('aiwerewolf.godView', true);
 
   const isSpectator = viewer?.kind === 'spectator';
-  // 观众，以及对局正常结束后的玩家：能看到调用统计，可以开上帝视角看所有身份、夜里的行动和思考摘要（服务端也按同一规则推送）
-  const fullView = !!viewer && !!summary && seesEverything(viewer, summary.status);
+  // 观众、出局后的玩家、对局正常结束后的玩家：能看到调用统计，可以开上帝视角看所有身份、夜里的行动和思考摘要（由服务端决定）
+  const fullView = state.fullView;
   const players = summary?.players ?? [];
   const mySeat = viewer?.kind === 'player' ? viewer.seat : null;
   const roles = visibleRoles(board, viewer, godView);

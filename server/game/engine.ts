@@ -83,6 +83,7 @@ export class Game {
   private readonly alive = new Set<number>();
   private sheriff: number | null = null;
   private idiotRevealed: number | null = null;
+  private readonly observers = new Set<number>(); // 出局并处理完遗言等的玩家，网页上进入旁观视角
   private antidote = true;
   private poison = true;
 
@@ -230,6 +231,11 @@ export class Game {
   seatForToken(token: string): number | null {
     const entry = Object.entries(this.record.humanTokens).find(([, t]) => t === token);
     return entry ? Number(entry[0]) : null;
+  }
+
+  // 出局并处理完遗言、开枪、移交警徽的玩家，之后能看到全部信息
+  isObserver(seat: number): boolean {
+    return this.observers.has(seat);
   }
 
   pendingRequestFor(seat: number): HumanRequest | null {
@@ -667,8 +673,15 @@ export class Game {
     this.emit({ type: 'speech', seat, kind, text: out.speech! }, PUBLIC);
   }
 
-  // 出局时：移交警徽 → 遗言 → 猎人开枪（被带走的人接着处理）
+  // 出局：处理完遗言等最后的动作后进入旁观视角。等处理完再切换，否则猎人开枪、警长移交警徽前就能看到所有身份
   private async dying(d: Death): Promise<void> {
+    await this.lastActs(d);
+    this.observers.add(d.seat);
+    this.broadcast({ kind: 'game', summary: this.summary() }); // 让这个玩家的推送重新判断能看到什么
+  }
+
+  // 出局时：移交警徽 → 遗言 → 猎人开枪（被带走的人接着处理）
+  private async lastActs(d: Death): Promise<void> {
     const canShoot = this.roles[d.seat] === 'hunter' && d.cause !== 'poison';
     const hasBadge = this.sheriff === d.seat;
     if (!d.lastWords && !canShoot && !hasBadge) return;

@@ -5,6 +5,7 @@ export interface StreamState {
   connected: boolean;
   error: string | null;
   viewer: Viewer | null;
+  fullView: boolean; // 能看到全部信息，由服务端决定（见 seesEverything）
   summary: GameSummary | null;
   events: GameEvent[];
   acting: Record<number, ActionType>; // 正在行动的座位
@@ -16,6 +17,7 @@ const initial: StreamState = {
   connected: false,
   error: null,
   viewer: null,
+  fullView: false,
   summary: null,
   events: [],
   acting: {},
@@ -42,7 +44,7 @@ function reducer(state: StreamState, action: Action): StreamState {
       switch (msg.kind) {
         case 'hello':
           // 重连时服务端会重发全部事件，先清空
-          return { ...initial, connected: true, viewer: msg.viewer };
+          return { ...initial, connected: true, viewer: msg.viewer, fullView: msg.fullView };
         case 'game':
           return { ...state, summary: msg.summary };
         case 'event': {

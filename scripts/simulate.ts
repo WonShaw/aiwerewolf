@@ -97,6 +97,8 @@ async function simulate(prefs: RolePreference[]): Promise<Game> {
       if (!['run_for_sheriff', 'campaign', 'sheriff_vote', 'pk_speech'].includes(r.action)) fail(`dead seat ${r.seat} asked ${r.action}`);
     }
     if (r.action === 'exile_vote' && r.seat === revealedIdiot) fail('revealed idiot asked to vote');
+    // 出局的玩家要等遗言、开枪、移交警徽都处理完才进入旁观视角，进入后不会再被要求行动
+    if (r.action !== 'reflect' && game.isObserver(r.seat)) fail(`observer ${r.seat} asked ${r.action}`);
     if (r.targets?.some((t) => !alive.has(t)) && !['run_for_sheriff', 'sheriff_vote', 'pk_speech', 'campaign'].includes(r.action)) {
       fail(`${r.action} offered dead targets ${r.targets}`);
     }
@@ -109,6 +111,11 @@ async function simulate(prefs: RolePreference[]): Promise<Game> {
   await game.run();
   if (game.record.status !== 'finished') fail(`status ${game.record.status}`);
   checkGame(game.events, roles);
+  // 旁观者都是已出局的玩家
+  for (const s of seats) {
+    if (game.isObserver(s) && alive.has(s)) fail(`alive seat ${s} became an observer`);
+    if (game.isObserver(s)) hit('observer');
+  }
   checkVisibility(game.events, received, roles);
   return game;
 }
@@ -239,7 +246,7 @@ for (let i = 0; i < GAMES; i++) {
 }
 console.log(`${GAMES} games ok`);
 console.log('coverage:', coverage);
-const required = ['witch save', 'witch poison', 'peaceful night', 'sheriff elected', 'no sheriff', 'sheriff pk', 'badge passed', 'badge destroyed', 'hunter shot', 'exile pk', 'nobody exiled', 'idiot revealed', 'exiled', 'last words', 'good wins', 'wolf wins'];
+const required = ['observer', 'witch save', 'witch poison', 'peaceful night', 'sheriff elected', 'no sheriff', 'sheriff pk', 'badge passed', 'badge destroyed', 'hunter shot', 'exile pk', 'nobody exiled', 'idiot revealed', 'exiled', 'last words', 'good wins', 'wolf wins'];
 const missing = required.filter((k) => !coverage[k]);
 if (missing.length) fail(`paths never exercised: ${missing.join(', ')}`);
 
@@ -290,7 +297,7 @@ try {
   const wolfLive: StreamMessage = { kind: 'live', seat: 2, action: 'wolf_discuss', speech: '…', seats: [2, 5] };
   const during = seesEverything(player, 'running');
   const after = seesEverything(player, 'finished');
-  if (during || !after || seesEverything(player, 'aborted')) fail('seesEverything wrong');
+  if (during || !after || seesEverything(player, 'aborted') || !seesEverything(player, 'running', true)) fail('seesEverything wrong');
   for (const msg of [hiddenEvent, hiddenStatus, wolfLive]) {
     if (messageVisible(msg, player, during) || !messageVisible(msg, player, after)) fail(`${msg.kind} visibility wrong`);
   }

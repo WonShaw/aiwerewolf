@@ -149,11 +149,11 @@ export interface GameSummary {
 // 谁在看：全 AI 对局的上帝视角观众，或者某个座位上的人类玩家
 export type Viewer = { kind: 'spectator' } | { kind: 'player'; seat: number };
 
-// 能看到全部信息（所有人的身份、夜里的行动、AI 的思考摘要和调用统计）：全 AI 对局的观众一直可以，
-// 玩家在对局正常结束后也可以。服务端据此过滤推送，网页据此显示对应的开关和面板。
-// 只影响推给网页的内容，AI 的上下文由 engine.ts 的 visibleTo 单独过滤
-export function seesEverything(viewer: Viewer, status: GameStatus): boolean {
-  return viewer.kind === 'spectator' || status === 'finished';
+// 能看到全部信息（所有人的身份、夜里的行动、AI 的思考摘要和调用统计）：全 AI 对局的观众一直可以；
+// 玩家在出局后（遗言、开枪、移交警徽都处理完）或对局正常结束后也可以。服务端据此过滤推送，
+// 并在 hello 里告诉网页。只影响推给网页的内容，AI 的上下文由 engine.ts 的 visibleTo 单独过滤
+export function seesEverything(viewer: Viewer, status: GameStatus, observer = false): boolean {
+  return viewer.kind === 'spectator' || status === 'finished' || observer;
 }
 
 // 做一个动作需要的信息：AI 的指令和人类的操作面板用的是同一份
@@ -217,7 +217,7 @@ export interface CreateGameResponse {
 
 // 通过 SSE 推给前端的消息
 export type StreamMessage =
-  | { kind: 'hello'; viewer: Viewer }
+  | { kind: 'hello'; viewer: Viewer; fullView: boolean } // fullView 见 seesEverything
   | { kind: 'event'; event: GameEvent }
   // 正在生成中的发言（流式）；seats 存在时只推给这些座位（例如夜里狼人的讨论）
   | { kind: 'live'; seat: number; action: ActionType; speech: string; seats?: number[] }
